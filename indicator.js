@@ -2,7 +2,7 @@ function onPageActionClicked (tab) {
   chrome.pageAction.getTitle({tabId: tab.id}, function(result) {
     chrome.tabs.create({
       index: tab.index + 1,
-      url: 'chrome://net-internals/#' + (result.match(/QUIC/) ? 'quic' : 'spdy'),
+      url: 'chrome://net-internals/#' + (result.match(/QUIC/) ? 'quic' : 'http2'),
       openerTabId: tab.id
     });
   });
@@ -10,7 +10,7 @@ function onPageActionClicked (tab) {
 
 chrome.runtime.onMessage.addListener(function (res, sender) {
   var tab = sender.tab
-    , showNoSpdy = !Number(localStorage.hideNoSPDY)
+    , showNoSpdy = !Number(localStorage.hideNoSPDY);
 
   if (res.spdy || showNoSpdy) {
     // show page action
@@ -45,7 +45,10 @@ chrome.runtime.onMessage.addListener(function (res, sender) {
 
     // change icon
     chrome.pageAction.setIcon({
-        path: 'icon-' + icon + '.png'
+        path: {
+          '19': 'icon-' + icon + '.png'
+        , '38': 'icon-' + icon + '-scale2.png'
+        }
       , tabId: tab.id
     });
 
@@ -54,18 +57,15 @@ chrome.runtime.onMessage.addListener(function (res, sender) {
         title: tooltip + '-enabled' + (res.spdy ? '(' + res.info + ')' : '')
       , tabId: tab.id
     });
-
-    // set click destination
-    if (!chrome.pageAction.onClicked.hasListener(onPageActionClicked)) {
-      chrome.pageAction.onClicked.addListener(onPageActionClicked);
-    }
   } else {
     chrome.pageAction.hide(tab.id);
   }
 });
 
-chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
-  if(changeInfo.status == "complete") {
-    chrome.tabs.sendMessage(tabId, {});
-  }
+// For preloaded pages, the message might've been sent already
+// This forces a new message in case this happened
+chrome.tabs.onReplaced.addListener(function(addedTabId, removedTabId) {
+  chrome.tabs.sendMessage(addedTabId, {});
 });
+
+chrome.pageAction.onClicked.addListener(onPageActionClicked);
